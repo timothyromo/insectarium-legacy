@@ -1,0 +1,2 @@
+# Placeholder. scripts/seed.sh regenerates scripts/redirects.txt at run time;
+# Task 9 copies the real output over this file. See DEPLOY.md step 6.
