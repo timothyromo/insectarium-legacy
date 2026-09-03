@@ -1,1 +1,9 @@
 /.superpowers/
+/reference/
+*.log
+.DS_Store
+Thumbs.db
+/scripts/redirects.txt
+/scripts/.pages-resolved/
+/scripts/.media-map.sed
+node_modules/
