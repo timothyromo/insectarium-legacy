@@ -283,9 +283,15 @@ No WooCommerce.
 scripts/
   seed.sh              orchestrator, run on DreamPress via SSH
   pages/<slug>.html    extracted, cleaned content fragment per page (source of truth)
-  media-manifest.tsv   <export-relative-path>\t<target-filename>
+  media/               the subset of export images actually referenced (tracked)
+  media-manifest.tsv   <scripts/media path>\t<original uploads/... URL>
   redirects.txt        generated .htaccess redirect block, .html -> clean slug
 ```
+
+The raw 90 MB export in `reference/` is **git-ignored**; the implementation
+plan's extraction step copies only the images pages actually reference into
+`scripts/media/`, so the repo stays self-contained for `git pull` on DreamPress
+without carrying the whole export.
 
 ### `seed.sh` behavior
 
@@ -294,7 +300,7 @@ scripts/
 - Activates the `insectarium-legacy` theme.
 - Sets permalink structure to `/%postname%/`, flushes rewrites.
 - Imports media first: for each `media-manifest.tsv` row,
-  `wp media import reference/…/<path> --porcelain`, recording old→new URL for
+  `wp media import scripts/media/<file> --porcelain`, recording old→new URL for
   the link-rewrite step. Missing source → warn, continue.
 - For each page (driven by an ordered list in the script): resolve by slug
   (`wp post list --post_type=page --field=ID --name=<slug>`). Found →
