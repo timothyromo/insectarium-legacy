@@ -14,12 +14,19 @@ set -uo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/il-dryrun.XXXXXX")"
 WP_LOG="$WORK/wp-calls.log"
+WP_LOG2="$WORK/wp-calls-2.log"
 SEED_OUT="$WORK/seed.out"
+SEED_OUT2="$WORK/seed-2.out"
 ATT_FILE="$WORK/att.counter"
 PAGE_FILE="$WORK/page.counter"
-export WP_LOG ATT_FILE PAGE_FILE
+# IL_PASS drives the stub: pass 1 = cold (post list prints nothing -> create branch,
+# no attachment found -> media import runs); pass 2 = warm (post list returns a fixed
+# fake id -> update branch; attachment lookup returns a fixed fake id -> NO media import).
+IL_PASS=1
+export WP_LOG ATT_FILE PAGE_FILE IL_PASS
 
 : > "$WP_LOG"
+: > "$WP_LOG2"
 echo 1000 > "$ATT_FILE"
 echo 2000 > "$PAGE_FILE"
 
@@ -58,8 +65,26 @@ wp() {
 		theme/activate)    return 0 ;;
 		rewrite/*)         return 0 ;;
 		option/update)     return 0 ;;
-		post/list)         return 0 ;;   # print nothing -> seed.sh always takes the create branch
+		post/list)
+			# pass 1: print nothing -> seed.sh takes the create branch / imports media.
+			# pass 2: return a fixed fake id -> seed.sh takes the update branch, and the
+			#         attachment meta_key lookup "finds" a prior import so media import
+			#         is skipped.
+			if [ "${IL_PASS:-1}" = "2" ]; then
+				for x in "$@"; do
+					case "$x" in
+						--post_type=attachment) printf '7777\n'; return 0 ;;
+					esac
+				done
+				for x in "$@"; do
+					case "$x" in
+						--post_type=page) printf '8888\n'; return 0 ;;
+					esac
+				done
+			fi
+			return 0 ;;
 		post/update)       return 0 ;;
+		post/meta)         return 0 ;;
 		media/import)
 			local id name
 			id="$(_wp_next "$ATT_FILE")"
@@ -86,10 +111,18 @@ wp() {
 }
 export -f wp _wp_next
 
-# ---- run the seeder ----------------------------------------------------------
-echo "== running: WP=wp ADMIN_USER=dryrun bash scripts/seed.sh =="
+# ---- run the seeder (twice) -------------------------------------------------
+echo "== run 1 (cold): WP=wp ADMIN_USER=dryrun bash scripts/seed.sh =="
+IL_PASS=1; export IL_PASS WP_LOG
 ( cd "$REPO_ROOT" && WP=wp ADMIN_USER=dryrun bash scripts/seed.sh ) > "$SEED_OUT" 2>&1
 SEED_RC=$?
+
+echo "== run 2 (warm): same, stub returns existing ids -> update branch, no media import =="
+IL_PASS=2; WP_LOG="$WP_LOG2"; export IL_PASS WP_LOG
+( cd "$REPO_ROOT" && WP=wp ADMIN_USER=dryrun bash scripts/seed.sh ) > "$SEED_OUT2" 2>&1
+SEED_RC2=$?
+# restore pass-1 context for the assertions below
+WP_LOG="$WORK/wp-calls.log"; IL_PASS=1; export IL_PASS WP_LOG
 
 RESOLVED_DIR="$REPO_ROOT/scripts/.pages-resolved"
 REDIRECTS="$REPO_ROOT/scripts/redirects.txt"
@@ -174,6 +207,34 @@ if [ -f "$REDIRECTS" ]; then
 else
 	fail "scripts/redirects.txt was not generated"
 fi
+
+# 7. run 1 media import: `wp media import` called for every manifest row
+MANIFEST_ROWS="$(grep -c '' "$REPO_ROOT/scripts/media-manifest.tsv" 2>/dev/null || echo 0)"
+IMPORT_N1="$(grep -c 'media import' "$WP_LOG")"
+if [ "$IMPORT_N1" -eq "$MANIFEST_ROWS" ] && [ "$IMPORT_N1" -gt 0 ]; then
+	pass "run 1: 'wp media import' called $IMPORT_N1 times (== $MANIFEST_ROWS manifest rows)"
+else
+	fail "run 1: expected $MANIFEST_ROWS 'wp media import' calls, got $IMPORT_N1"
+fi
+
+# ---- run 2 (warm / idempotency) assertions --------------------------------
+echo
+echo "== run 2 assertions (idempotent re-run) =="
+
+if [ "$SEED_RC2" -eq 0 ]; then pass "run 2: seed.sh exited 0"
+else fail "run 2: seed.sh exited $SEED_RC2 (see $SEED_OUT2)"; sed 's/^/    | /' "$SEED_OUT2"; fi
+
+UPDATE_N2="$(grep -c 'post update' "$WP_LOG2")"
+if [ "$UPDATE_N2" -eq 29 ]; then pass "run 2: exactly 29 'wp post update' calls"
+else fail "run 2: expected 29 'wp post update' calls, got $UPDATE_N2"; fi
+
+CREATE_N2="$(grep -c 'post create' "$WP_LOG2")"
+if [ "$CREATE_N2" -eq 0 ]; then pass "run 2: zero 'wp post create' calls"
+else fail "run 2: expected 0 'wp post create' calls, got $CREATE_N2"; fi
+
+IMPORT_N2="$(grep -c 'media import' "$WP_LOG2")"
+if [ "$IMPORT_N2" -eq 0 ]; then pass "run 2: zero 'wp media import' calls (prior imports reused via _il_media_key)"
+else fail "run 2: expected 0 'wp media import' calls, got $IMPORT_N2"; fi
 
 # ---- summary ---------------------------------------------------------------
 echo

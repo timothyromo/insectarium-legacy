@@ -4,7 +4,7 @@
 set -euo pipefail
 
 # ---- config -----------------------------------------------------------------
-WP="${WP:-wp}"                       # override to e.g. 'wp --path=/srv/wp'
+read -r -a WP_CMD <<< "${WP:-wp}"    # override to e.g. WP='wp --path=/srv/wp'
 ADMIN_USER="${ADMIN_USER:-admin}"    # an administrator login (for unfiltered_html)
 THEME_SLUG="insectarium-legacy"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -63,10 +63,10 @@ public-events1.html|/public-events
 '
 
 log() { printf '%s\n' "$*" >&2; }
-wpq() { "$WP" --user="$ADMIN_USER" "$@"; }
+wpq() { "${WP_CMD[@]}" --user="$ADMIN_USER" "$@"; }
 
 # ---- 0. sanity ------------------------------------------------------------
-command -v "$WP" >/dev/null || { log "wp-cli not found"; exit 1; }
+command -v "${WP_CMD[0]}" >/dev/null || { log "wp-cli not found"; exit 1; }
 wpq core is-installed || { log "WordPress not installed at target"; exit 1; }
 if wpq config get DISALLOW_UNFILTERED_HTML 2>/dev/null | grep -qi '^1\|^true'; then
   log "ERROR: DISALLOW_UNFILTERED_HTML is set — embed markup would be stripped. Aborting."
@@ -86,7 +86,13 @@ if [[ -f "$MANIFEST" ]]; then
     [[ -z "${relfile:-}" ]] && continue
     src="$REPO_ROOT/scripts/$relfile"
     if [[ ! -f "$src" ]]; then log "  WARN missing $relfile"; continue; fi
-    id="$(wpq media import "$src" --porcelain)"
+    # Reuse a prior import keyed on the manifest relative filename (idempotent re-run).
+    key="il-$(printf '%s' "$relfile" | tr -c 'A-Za-z0-9' '-')"
+    id="$(wpq post list --post_type=attachment --meta_key=_il_media_key --meta_value="$key" --field=ID --posts_per_page=1 2>/dev/null || true)"
+    if [[ -z "$id" ]]; then
+      id="$(wpq media import "$src" --porcelain)"
+      wpq post meta update "$id" _il_media_key "$key" >/dev/null
+    fi
     url="$(wpq eval "echo wp_get_attachment_url($id);")"
     esc_token="$(printf '%s' "$token" | sed -e 's/[\/&|]/\\&/g')"
     esc_url="$(printf '%s' "$url" | sed -e 's/[\/&|]/\\&/g')"
@@ -119,7 +125,7 @@ while IFS='|' read -r slug title parent; do
   body_file="$RESOLVED_DIR/$slug.html"
   [[ -f "$body_file" ]] || { log "  MISSING fragment for $slug"; exit 1; }
 
-  existing="$(wpq post list --post_type=page --name="$slug" --field=ID --posts_per_page=1)"
+  existing="$(wpq post list --post_type=page --post_status=any --name="$slug" --field=ID --posts_per_page=1)"
   parent_id=0
   if [[ -n "$parent" ]]; then parent_id="${ID_BY_SLUG[$parent]:-0}"; fi
 
