@@ -135,7 +135,7 @@ def extract_one(slug):
     flag_placeholders(slug, frag)
 
     frag = frag.strip() + "\n"
-    open(os.path.join(PAGES_OUT, f"{slug}.html"), "w", encoding="utf-8").write(frag)
+    open(os.path.join(PAGES_OUT, f"{slug}.html"), "w", encoding="utf-8", newline="\n").write(frag)
     return len(frag)
 
 
@@ -147,14 +147,14 @@ def main():
         print(f"  {slug:32} {n:>8} bytes")
 
     # copy referenced media, write manifest
-    with open(MANIFEST, "w", encoding="utf-8") as mf:
+    with open(MANIFEST, "w", encoding="utf-8", newline="\n") as mf:
         for orig, fn in sorted(media_map.items()):
             src = find_source_on_disk(orig)
             shutil.copyfile(src, os.path.join(MEDIA_OUT, fn))
             mf.write(f"media/{fn}\t@@MEDIA:{orig}@@\n")
     print(f"  media files: {len(media_map)}")
 
-    open(REPORT, "w", encoding="utf-8").write("\n".join(report_lines) + "\n")
+    open(REPORT, "w", encoding="utf-8", newline="\n").write("\n".join(report_lines) + "\n")
     print(f"  report: {REPORT} ({len(report_lines)} lines)")
 
 
