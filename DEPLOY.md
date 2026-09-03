@@ -92,15 +92,31 @@ ADMIN_USER=<your-admin-login> bash scripts/seed.sh
 ```
 
 `seed.sh` finds its own data via `$REPO_ROOT` and calls `wp` in the current
-directory, so run it from the WordPress root. To point it at a WordPress root
-elsewhere — e.g. testing against a local "Local"/LocalWP site whose path
-contains a space — set `WP_PATH` (do **not** put `--path` inside `WP=`, which
-word-splits):
+directory, so run it from the WordPress root. To target a WordPress root
+elsewhere, set `WP_PATH` (space-safe; do **not** put `--path` inside `WP=`,
+which word-splits):
 
 ```bash
 WP_PATH='/c/Users/you/Local Sites/insectarium-legacy-test/app/public' \
 ADMIN_USER=<your-admin-login> bash /path/to/repo/scripts/seed.sh
 ```
+
+**Local / LocalWP on Windows:** the bundled `wp` shim can fail with
+`'D:\Program' is not recognized` — it calls its own PHP with an unquoted,
+space-containing path. That error is Local's, not `seed.sh`'s. Bypass the shim
+by pointing at Local's PHP + a `wp-cli.phar` directly (get the phar from
+`https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar`):
+
+```bash
+WP_BIN='/c/Program Files/Local/resources/extraResources/lightning-services/php-<ver>/bin/win64/php.exe' \
+WP_PHAR='/c/Users/you/wp-cli.phar' \
+WP_PATH='/c/Users/you/Local Sites/insectarium-legacy-test/app/public' \
+ADMIN_USER=<your-admin-login> bash /path/to/repo/scripts/seed.sh
+```
+
+Find Local's PHP with `where php` inside Local's site shell, or look under the
+Local install dir (`C:\Program Files\Local\...` or wherever it was installed —
+possibly `D:\`).
 
 `seed.sh` is idempotent. It activates the `insectarium-legacy` theme, sets
 permalinks to `/%postname%/`, imports the 53 media files, resolves `@@MEDIA:`

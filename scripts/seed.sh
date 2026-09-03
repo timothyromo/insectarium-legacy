@@ -4,10 +4,18 @@
 set -euo pipefail
 
 # ---- config -----------------------------------------------------------------
-read -r -a WP_CMD <<< "${WP:-wp}"    # override the wp binary, e.g. WP='php /path/to/wp-cli.phar'
-# Point at a WordPress root that isn't the current directory. Use this (not a
-# --path inside WP=...) when the path contains spaces, e.g. a "Local" site:
-#   WP_PATH='/c/Users/you/Local Sites/mysite/app/public'
+# How to call WP-CLI. Priority:
+#   WP_BIN  — path to one executable, kept intact even with spaces (a php.exe,
+#             or a wp shim). Combine with WP_PHAR to run wp-cli.phar through it.
+#   WP      — word-split fallback for the simple case (default: "wp").
+#   WP_PHAR — optional wp-cli.phar, appended as its own arg.
+#   WP_PATH — WordPress root when it is not the current directory (space-safe).
+# On Windows + "Local"/LocalWP, the bundled `wp` shim can choke on its own
+# unquoted PHP path ("'D:\Program' is not recognized"); bypass it with e.g.
+#   WP_BIN='/c/Program Files/Local/.../php.exe' WP_PHAR='/c/path/wp-cli.phar' \
+#   WP_PATH='/c/Users/you/Local Sites/site/app/public' bash scripts/seed.sh
+if [[ -n "${WP_BIN:-}" ]]; then WP_CMD=("$WP_BIN"); else read -r -a WP_CMD <<< "${WP:-wp}"; fi
+[[ -n "${WP_PHAR:-}" ]] && WP_CMD+=("$WP_PHAR")
 [[ -n "${WP_PATH:-}" ]] && WP_CMD+=(--path="$WP_PATH")
 ADMIN_USER="${ADMIN_USER:-admin}"    # an administrator login (for unfiltered_html)
 THEME_SLUG="insectarium-legacy"
@@ -70,8 +78,16 @@ log() { printf '%s\n' "$*" >&2; }
 wpq() { "${WP_CMD[@]}" --user="$ADMIN_USER" "$@"; }
 
 # ---- 0. sanity ------------------------------------------------------------
-command -v "${WP_CMD[0]}" >/dev/null || { log "wp-cli not found"; exit 1; }
-wpq core is-installed || { log "WordPress not installed at target"; exit 1; }
+command -v "${WP_CMD[0]}" >/dev/null || { log "wp-cli not found: ${WP_CMD[0]}"; exit 1; }
+if ! wpq core is-installed; then
+  log "WP-CLI could not reach a WordPress install."
+  log "  command: ${WP_CMD[*]} --user=$ADMIN_USER core is-installed"
+  log "  - run 'wp core is-installed' alone in this shell to see the raw error"
+  log "  - on Windows/Local, if you see \"'D:\\Program' is not recognized\", the"
+  log "    bundled wp shim is broken: set WP_BIN=<php.exe> WP_PHAR=<wp-cli.phar> (see header)"
+  log "  - otherwise check WP_PATH points at the WordPress root"
+  exit 1
+fi
 if wpq config get DISALLOW_UNFILTERED_HTML 2>/dev/null | grep -qi '^1\|^true'; then
   log "ERROR: DISALLOW_UNFILTERED_HTML is set — embed markup would be stripped. Aborting."
   exit 1
