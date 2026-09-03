@@ -47,6 +47,14 @@ render_one() {  # $1 = slug
 		else fail "$slug: MISSING  $needle"; fi
 	done
 
+	# wrapper chain must balance: header opens .wrapper + .main-wrap, page.php
+	# opens #wsite-content, footer closes all three; the fragment must not skew it.
+	local dopen dclose
+	dopen="$(grep -o '<div' "$out" | wc -l | tr -d ' ')"
+	dclose="$(grep -o '</div>' "$out" | wc -l | tr -d ' ')"
+	if [ "$dopen" -eq "$dclose" ]; then pass "$slug: <div>/</div> balanced ($dopen each)"
+	else fail "$slug: <div>/</div> IMBALANCE ($dopen open / $dclose close)"; fi
+
 	case "$slug" in
 		calendar)
 			needle='calendar.google.com/calendar/embed?src=info%40pdxinsectarium.org&ctz=America%2FLos_Angeles'
@@ -63,12 +71,16 @@ render_one() {  # $1 = slug
 			grep -qF -- 'fareharbor.com/embeds/book/pdxinsectarium/items/690480' "$out" \
 				&& pass "shop: fareharbor items/690480 gift-card URL present" \
 				|| fail "shop: MISSING fareharbor items/690480 URL" ;;
+		private-events)
+			grep -qF -- 'squareup.com/appointments/buyer/widget/l60stped6z2o1v' "$out" \
+				&& pass "private-events: Square Appointments booking widget survives byte-for-byte" \
+				|| fail "private-events: MISSING squareup.com/appointments/buyer/widget/l60stped6z2o1v" ;;
 	esac
 }
 
 echo
 echo "== render smoke test =="
-for slug in home about-us calendar public-events shop care-sheets; do
+for slug in home about-us calendar public-events shop care-sheets private-events; do
 	render_one "$slug"
 done
 
