@@ -2,17 +2,19 @@
 
 Date: 2026-09-02
 Repo: `insectarium-legacy`
-Status: approved design. Implementation plan is **held** until the site owner
-supplies real content for the three content-blocked pages (Home, Hours/Location,
-Public Events — see Page Inventory).
+Status: approved design, ready for implementation plan. Authoritative content
+source is now the full Weebly export in `reference/` — the earlier
+content-blocked hold (Home, Hours/Location, Public Events) is lifted; all three
+are fully present in the export.
 
 ## Purpose
 
 Stand up a temporary "lift-and-shift" replica of the live Weebly site
 `pdxinsectarium.org` on WordPress (DreamPress), so the org can move off Weebly
 without waiting for the full rebuild happening in `insectarium-web`. This is a
-faithful copy of the **current** site, not a redesign. It is expected to be
-short-lived and eventually superseded by the `insectarium-web` build.
+faithful, near-pixel copy of the **current** site, not a redesign. It is
+expected to be short-lived and eventually superseded by the `insectarium-web`
+build.
 
 Explicit non-goals: no custom post types, no ACF, no page builder, no new
 features, no IA changes, no visual redesign. Plain WordPress Pages only.
@@ -24,314 +26,362 @@ Two artifacts, both version-controlled in this repo:
 1. A custom theme, slug `insectarium-legacy`, under
    `wp-content/themes/insectarium-legacy/`.
 2. A WP-CLI seed script under `scripts/`, run once over SSH on DreamPress after
-   the theme is deployed, that creates every Page with its real content and
-   builds the nav menu. Idempotent — safe to re-run to pick up content updates.
+   the theme is deployed, that creates every Page with its real content.
+   Idempotent — safe to re-run to pick up content updates.
 
 No WXR file. No hand-entry through wp-admin. DreamPress is assumed to be
 standard single-site WordPress, current WP, PHP 8.x, no multisite, no
 pre-installed page builder.
 
-## Source-content constraint (important context)
+## Source: the Weebly export
 
-The live site and its Weebly/Editmysite CDN are behind a Cloudflare bot
-challenge; `curl` and the fetch tooling both get HTTP 403. The Wayback Machine
-has a full 2026-06-06 snapshot but is rate-limiting hard and is not reachable
-through the fetch tool. Lowering Cloudflare on the production site was
-considered and rejected (real payment traffic, not worth the exposure for a
-temporary build).
+Authoritative source is the full site export extracted to
+`reference/13100960266a98c399e06d8/`. It contains:
 
-Consequences that shape this spec:
+- Rendered HTML for every page (`*.html` at the export root).
+- The theme stylesheet `files/main_style.css` (~37 KB), plus a large
+  page-specific inline `<style>` block inside each page's HTML (colored-box
+  callouts, per-element overrides — these must be captured per page, not just
+  the global sheet).
+- All images under `uploads/8/1/3/7/81376966/…` and theme images under
+  `files/theme/files/images/`.
+- Base-theme webfonts under `files/theme/files/fonts/` (`Cento-*`) — these are
+  the stock theme font and are **overridden site-wide** by inline CSS; not used.
 
-- Page content comes from `legacy-site-content-reference.md` (hand-compiled,
-  partial) plus content the site owner relays directly.
-- The real Weebly CSS and image assets cannot be retrieved right now. The theme
-  ships a faithful **approximation** of the standard Weebly theme layout, to be
-  refined from screenshots later. Only `assets/css/site.css` and the media
-  library are affected by this; everything else is final.
-- Three pages (Home, Hours/Location, Public Events) are **content-blocked**:
-  shipping them as placeholders would be a functional regression from the live
-  site, so implementation of these specific pages is held until the owner
-  supplies real content. See "Content-blocked pages" below.
-- 9 pages (+2 conditional) have no usable content yet and ship as visible
-  "content coming soon" placeholders (see Page Inventory).
+`legacy-site-content-reference.md` is now superseded by the export and kept only
+as a secondary cross-check.
+
+Export currency: newest dated asset is `screenshot-2026-01-13…`; Weebly strips
+real build timestamps on export, so the exact date can't be pinned. Time-
+sensitive content — Public Events listings above all — must be eyeballed
+against the live site before deploy (see Go-live checklist).
+
+The live site and Weebly CDN are behind a Cloudflare bot challenge, so no
+direct re-fetch or automated live diff is possible; the export is the single
+source and the pre-deploy check is manual.
 
 ## Content / page inventory
 
-Slugs are the old path minus `.html`.
+Slugs are the old path minus `.html`. Every page below has full content in the
+export unless noted.
 
-### Content-blocked pages — implementation held (3)
+### Task-list pages — in the nav (21)
 
-These pages are part of the live site's core function. A "content coming soon"
-placeholder here is a regression, not a replica, so their `pages/<slug>.html`
-content files are **not authored and the seed script does not create/update
-them** until the owner supplies real content. The rest of the build (theme,
-seed script, nav, other pages) proceeds without them; go-live is blocked until
-all three are filled in.
-
-| Page | Slug | Blocked on |
-|---|---|---|
-| Home | `/` (front-page) | Real old-Weebly homepage body (layout + copy). Must include the accessibility-survey callout. `front-page.php` template is still built now; only the front-page *content* is held. |
-| Hours/Location | `hourslocation` | Real address, hours, directions/transit/parking, map embed. |
-| Public Events | `public-events` | Current event listings (individual cards, FareHarbor links). Hard requirement: supplied **before deployment**, no exceptions — this is where ticket-purchase traffic routes. Policy text + "Free Library Events" example already captured. |
-
-### Real content available now (9)
-
-| Page | Slug | Source status | Notes |
+| Page | Slug | In nav under | Notes |
 |---|---|---|---|
-| About Us | `about-us` | full | Intro, history, residents table, Contact block, team bios (Red Armstrong bio cut off — TODO marker), press-mentions link list. |
-| FAQ about the insectarium | `faq-about-the-insectarium` | partial | Hours/prices, masks, wheelchair access (cut off), handling fees (cut off). TODO markers inline. |
-| FAQ about bugs | `faq-about-bugs` | partial | Oregon spiders Q&A, mantis-egg-case Q&A (cut off). More Q&A exists — TODO marker. |
-| Calendar | `calendar` | full | Intro, cancellation policy, demonstration-schedule intro + full static demo list (legacy text version, deliberately kept), Google Calendar iframe embed, two images (`calendar-41_orig.png`, `calendar-42_orig.png`). |
-| Admission | `admission` | full | Address, booking guidance, cancellation policy, two pricing tables (online / walk-in), notes, FareHarbor embed. |
-| Memberships | `memberships` | partial | Purchase mechanics + price range only. Tier/benefit text is TODO. |
-| Shop | `shop` | partial | Description of what's sold (digital downloads, donation product via Square, FareHarbor gift cards). Actual store markup TODO. |
-| Services | `services` | full | Insect Pinning, Pet Bug Sitting, Tarantula Adoption Program (+ current adoptable list, flagged volatile), Tarantula Donation info. |
-| Bug Club | `bug-club` | mostly full | Volunteer-law explanation, perks list (tail cut off), participation requirement (cut off). TODO markers. |
+| Home | front page | Home | Source is `index.html` (NOT `home.html`/`home1.html`, which are stale "under construction" drafts). Tagline, address, FareHarbor gift-admission item embed, KIT mailing list, accessibility-survey callout. |
+| About Us | `about-us` | Info | Intro/history, residents table, Contact block, team bios, press-mentions list. |
+| FAQ about the insectarium | `faq-about-the-insectarium` | Info | Full Q&A. |
+| FAQ about bugs | `faq-about-bugs` | Info | Full Q&A. |
+| Calendar | `calendar` | Visit | Intro, cancellation policy, demo-schedule text, Google Calendar iframe, images. |
+| Admission | `admission` | Visit | Booking guidance, cancellation policy, two pricing tables, notes, FareHarbor embed. |
+| Hours/Location | `hourslocation` | Visit | Address, hours, directions, map. Full in export. |
+| Summer Camp | `summer-camp` | Visit | Large page (~15 KB content). |
+| Memberships | `memberships` | Visit | Tiers + benefits + purchase mechanics. Full in export. |
+| Public Events | `public-events` | (top level) | Largest page (~240 KB) — many event cards, FareHarbor links. Verify against live before deploy. |
+| Events at the Insectarium | `private-events` | Private Events and Field Trips | Square Appointments embed, "don't use the global Book Now" warning. |
+| Off-site Events | `off-site-events` | Private Events and Field Trips | Full in export. |
+| Photo Shoots | `photo-shoots` | Private Events and Field Trips | Full in export. |
+| Bug Club | `bug-club` | Get involved | Full in export. |
+| Community | `community` | Get involved | Full in export (page `<title>` says "FAQ", heading is "Community"). |
+| Shop | `shop` | Other | **Storefront not in export** (Weebly Store app, client-rendered). See "Shop page" below. |
+| Services | `services` | Other | Insect Pinning, Pet Bug Sitting, Tarantula Adoption Program + adoptable list (volatile), Tarantula Donation info. |
+| Care Sheets | `care-sheets` | Other | Parent page, clickable. |
+| Care Sheets: Jumping Spiders | `jumping-spiders` | Other ▸ Care Sheets | Child of `care-sheets`. |
+| Care Sheets: Ghost Mantis | `ghost-mantis` | Other ▸ Care Sheets | Child of `care-sheets`. |
+| Care Sheets: Isopods | `isopods` | Other ▸ Care Sheets | Child of `care-sheets`. |
 
-### Placeholder pages, awaiting content (9, +2 conditional)
+### Orphan pages — build, NOT in the nav (8 pages, + 1 ignored duplicate)
 
-Created as **published** pages with a visible "Content coming soon" line and an
-HTML comment listing what the reference file says the page needs. Keeps nav
-links from 404ing.
+These exist as real, content-bearing pages on live but are absent from the nav.
+Replicate them as **published** Pages reachable by direct URL only, matching
+live. Not added to the menu.
 
-`summer-camp`, `private-events` (menu label "Events at the Insectarium"),
-`off-site-events`, `photo-shoots`, `community`, `care-sheets` (parent),
-`jumping-spiders`, `ghost-mantis`, `isopods`.
+| Page | Slug | Notes |
+|---|---|---|
+| Donate | `donate` | Colored-box callout + FareHarbor embed. `donate1.html` is a near-duplicate (different length) — implementation picks the canonical one, ignores the other; decision logged in `CHANGES.md`. |
+| Internships | `internships` | "Portland Insectarium Internship Program". |
+| Mini Museum Alliance | `mma` | Cross-org project page. Contains "More info coming soon!" placeholder text — kept verbatim (it is live content, not our placeholder); noted in `CHANGES.md`. |
+| Live Bug Directory | `live-bugs` | Parent of the four below. |
+| Tarantulas | `tarantulas` | Child of `live-bugs`. |
+| Scorpions | `scorpions` | Child of `live-bugs`. |
+| True Spiders | `true-spiders` | Child of `live-bugs`. |
+| Other Arachnids | `other-arachnids` | Child of `live-bugs`. |
 
-Conditional, pending owner confirmation they exist on live: `donate`,
-`internships`. If created, they are published but **excluded from the nav menu**
-until confirmed (Version A nav has neither).
+`live-bugs` and its children have no in-content cross-links in the export; the
+parent/child relationship is inferred from slug/topic and set via
+`--post_parent` for tidy `/live-bugs/tarantulas` permalinks. If implementation
+finds they were flat on live, keep them flat — log the choice.
 
-### Care Sheets hierarchy
+### Ignore (Weebly artifacts in the export)
 
-`care-sheets` is the parent Page. `jumping-spiders`, `ghost-mantis`, `isopods`
-are children (`--post_parent` set by the seed script). This yields
-`/care-sheets/jumping-spiders` style permalinks; the redirect list maps the old
-flat `/jumping-spiders.html` URLs onto them.
+`home.html`, `home1.html` (stale homepage drafts); `info.html`, `visit.html`,
+`get-involved.html`, `other.html`, `private-events-and-field-trips.html` (empty
+40-byte auto-stubs Weebly generates for non-clickable parent menu items).
 
-## Navigation (Version A — confirmed structure)
+### Page hierarchy
 
-One WP menu named `Primary`, assigned to theme location `primary`. Built by the
-seed script.
+- `care-sheets` → children `jumping-spiders`, `ghost-mantis`, `isopods`
+- `live-bugs` → children `tarantulas`, `scorpions`, `true-spiders`,
+  `other-arachnids`
 
-- Home → front page
-- **Info** (custom link `#`, group header)
-  - About Us
-  - FAQ about the insectarium
-  - FAQ about bugs
-- **Visit** (custom link `#`)
-  - Calendar
-  - Admission
-  - Hours/Location
-  - Summer Camp
-  - Memberships
-- Public Events → page
-- **Private Events and Field Trips** (custom link `#`)
-  - Events at the Insectarium (→ `private-events` page)
-  - Off-site Events
-  - Photo Shoots
-- **Get Involved** (custom link `#`)
-  - Bug Club
-  - Community
-- **Other** (custom link `#`)
-  - Shop
-  - Services
-  - Care Sheets (→ `care-sheets` page)
-    - Jumping Spiders
-    - Ghost Mantis
-    - Isopods
+Children created after parents with `--post_parent=<id>`. Permalinks become
+`/care-sheets/jumping-spiders` etc.; the redirect list maps every old flat
+`.html` URL onto the new path.
 
-Group headers that are not real pages are `#` custom links (matches Weebly's
-non-navigating parent behavior). Where a parent is also a real page (Care
-Sheets, Events at the Insectarium) the parent item links to that page. The
-theme's nav CSS must support the three-level nesting under Other → Care Sheets.
+## Navigation (Version A — confirmed verbatim from `index.html`)
+
+The nav is **hardcoded in `header.php`**, copied from the export's menu markup
+with `href`s rewritten to clean slugs. Rationale: the earlier plan had a
+WP-CLI-built menu, but with the real export in hand, a verbatim copy of
+Weebly's `wsite-menu-default` markup is the surest route to a pixel-identical
+header and dropdown behavior, and the site is temporary — a nav change during
+its life is a one-file edit + redeploy. No `register_nav_menus`, no
+`menu.sh`.
+
+Structure:
+
+- Home → `/`
+- **Info** — non-clickable parent (`<a>` with no `href`, exactly as Weebly)
+  - About us → `/about-us`
+  - FAQ about the insectarium → `/faq-about-the-insectarium`
+  - FAQ about bugs → `/faq-about-bugs`
+- **Visit** — non-clickable parent
+  - Calendar → `/calendar`
+  - Admission → `/admission`
+  - Hours/Location → `/hourslocation`
+  - Summer Camp → `/summer-camp`
+  - Memberships → `/memberships`
+- Public Events → `/public-events`
+- **Private Events and Field Trips** — non-clickable parent
+  - Events at the Insectarium → `/private-events`
+  - Off-site events → `/off-site-events`
+  - Photo shoots → `/photo-shoots`
+- **Get involved** — non-clickable parent
+  - Bug Club → `/bug-club`
+  - Community → `/community`
+- **Other** — non-clickable parent
+  - Shop → `/shop`
+  - Services → `/services`
+  - Care Sheets → `/care-sheets` (clickable)
+    - Jumping Spiders → `/jumping-spiders`
+    - Ghost Mantis → `/ghost-mantis`
+    - Isopods → `/isopods`
+
+Labels, capitalization ("Off-site events", "Get involved") and the `>` marker on
+Care Sheets are reproduced as they appear in the export. The site-wide
+FareHarbor "Book Now" button in the header is copied verbatim.
 
 ## Theme design
+
+### Approach — port, don't re-approximate
+
+Because the export gives us the real CSS and markup, the theme **ports** the
+Weebly presentation rather than approximating it:
+
+- `header.php` / `footer.php` reproduce the Weebly chrome (logo, hardcoded nav,
+  footer) using the export's markup and classes.
+- `page.php` outputs the page title and `the_content()` inside the same
+  wrapper structure Weebly uses (`#wsite-content`, `.wsite-section`, …) so the
+  ported CSS applies unchanged.
+- Page content stored in `scripts/pages/<slug>.html` is the extracted inner
+  content HTML for that page from the export, **including its page-specific
+  `<style>` block**, lightly cleaned (see "Content extraction").
+- `assets/css/site.css` = Weebly base rules + a cleaned `main_style.css` + the
+  header/nav/footer rules + `@font-face`/font stacks. Loaded on every page.
 
 ### File layout
 
 ```
 wp-content/themes/insectarium-legacy/
-  style.css                WordPress theme header + CSS reset / base typography
-  functions.php            enqueue site.css + fonts, register 'primary' menu
-                           location, add_image_size if needed, allow
-                           unfiltered_html for administrators
-  header.php               <head>, skip link, site logo, primary nav,
-                           site-wide FareHarbor "Book Now" button (verbatim
-                           Weebly markup)
-  footer.php               footer content, wp_footer
-  front-page.php           Home
-  page.php                 all other pages; renders the_title() as <h1> then
-                           the_content()
+  style.css                WP theme header + import of assets/css/site.css
+  functions.php            enqueue site.css + fonts; allow unfiltered_html for
+                           administrators; set content width; no menus, no
+                           widgets, no comments
+  header.php               <head>, wp_head(), site header, hardcoded Version A nav,
+                           verbatim FareHarbor "Book Now" button
+  footer.php               site footer, wp_footer()
+  front-page.php           Home (renders the front page's content)
+  page.php                 all other pages
   index.php                fallback (required by WP)
   404.php                  simple 404
-  assets/css/site.css      the replica stylesheet (approximation)
-  assets/img/              logo, any structural images (populated later)
-  assets/fonts/            self-hosted fonts (populated later)
-  template-parts/          optional shared content blocks
+  assets/css/site.css      ported Weebly stylesheet
+  assets/fonts/            self-hosted webfonts
+  assets/img/              logo + any chrome images from the export
 ```
 
-No `functions.php` feature bloat: no widgets, no sidebars, no comments support,
-no block patterns, no theme.json beyond what's needed to disable the block
-editor's default wide/full styles from interfering.
+### Fonts
 
-### Styling approach (approximation)
+Effective fonts on live (from inline CSS, which overrides `main_style.css`):
 
-Standard Weebly single-column theme conventions:
+- **Amaranth** — body copy and nav
+- **Georgia** — headlines (`.wsite-headline`, content titles); websafe, no file
+- **Gentium Basic**, **Montserrat**, **Open Sans** — used in spots
 
-- Centered content column ~960–1000px, white on a light body background
-- Top-of-page centered/left logo, horizontal primary nav below or beside it
-- Pure-CSS hover/focus dropdown menus, three-level capable
-- System/Google-ish font stack approximating Weebly defaults until real fonts
-  are localized
-- Page renders `<h1>` title + WYSIWYG content; tables get light borders to
-  match the reference's pricing/residents tables
-- Mobile: nav collapses to a simple toggled list; single column throughout
+Amaranth, Gentium Basic, Montserrat, Open Sans are all on Google Fonts;
+self-host the needed weights under `assets/fonts/` with `@font-face` (no
+runtime dependency on Google or Weebly CDNs). Georgia stays a system stack.
 
-`site.css` is the only file expected to change materially when screenshots /
-real CSS arrive.
+### Palette (from the export CSS)
 
-### Embeds
+`#005b47` primary green (links), `#e0bf5c` / `#e9cf76` gold (hover, callout
+backgrounds), `#2a2a2a` near-black text. Full values taken from `main_style.css`
+and inline blocks during implementation.
 
-Pasted verbatim into page content HTML, never wrapped or shortcode-d:
+### Content extraction (per page)
 
-- FareHarbor booking embeds — full URL with tracking params where the reference
-  provides it (Admission), simplified `?full-items=yes` form elsewhere as seen
-  on live
-- FareHarbor site-wide "Book Now" button — in `header.php` exactly as Weebly
-  emits it
-- Google Calendar iframe (Calendar page)
-- Square Appointments embed (Private Events page, when content arrives)
-- KIT mailing-list link (About page)
+For each page, from its export HTML:
 
-`unfiltered_html` for admins + creating posts as an admin user via WP-CLI
-ensures none of this markup is stripped.
+1. Take the inner HTML of the main content region (`#wsite-content` /
+   `.wsite-section` wrapper).
+2. Keep the page-specific `<style>` block that precedes it.
+3. Rewrite internal links: `foo.html` → `/foo`; flat Care Sheet / Live Bug
+   links → nested paths.
+4. Rewrite asset URLs: `uploads/...` and `files/...` → the WordPress media URL
+   (`/wp-content/uploads/...`) for files imported by the seed script, or a
+   theme-asset path for chrome images.
+5. Keep every embed (FareHarbor, Google Calendar iframe, Square, KIT) exactly
+   as-is.
+6. Strip Weebly runtime cruft: `<script>` tags, `data-*` editor attributes,
+   `id="wsite-com-*"` app mounts that won't hydrate, empty editor wrappers.
+7. Fix in-place the things the brief calls out — dead "More Info" links,
+   leftover "More info soon" text — and log each in `CHANGES.md`. (The MMA
+   page's "More info coming soon!" is live body copy, not a placeholder — it
+   stays.)
+
+Output is a clean HTML fragment per page in `scripts/pages/<slug>.html`.
+
+### Embeds — kept byte-for-byte
+
+- FareHarbor booking embeds — the exact URL/params from each page's export
+  (Admission, Home gift item `items/564068`, Shop item `items/690480`, etc.)
+- FareHarbor site-wide "Book Now" button — in `header.php` verbatim
+- Google Calendar iframe (Calendar)
+- Square Appointments embed (Events at the Insectarium)
+- KIT mailing-list links/buttons (`kit.com/74fb3ad6f8`, `kit.com/buttons/...`)
+
+`unfiltered_html` for admins + creating posts as an admin user via WP-CLI keeps
+this markup intact.
+
+### Shop page
+
+The Weebly storefront is a client-rendered app and is not in the export.
+Replicate `shop.html` as a static Page:
+
+- Reproduce whatever static intro copy is in the export's `shop.html`.
+- Keep the FareHarbor gift-card embeds that ARE in the export
+  (`items/690480` and any others).
+- Add a single prominent button/link to the external store, URL supplied by the
+  owner; until then a placeholder `#` link with an HTML comment. Logged in
+  `CHANGES.md`.
+
+No WooCommerce.
 
 ## Seed script design
 
 ```
 scripts/
   seed.sh              orchestrator, run on DreamPress via SSH
-  pages/<slug>.html    one hand-authored HTML body per page (content source of truth)
-  menu.sh              builds the Primary menu (invoked by seed.sh)
-  media-manifest.tsv   <original-url>\t<local-filename>  (for wp media import)
+  pages/<slug>.html    extracted, cleaned content fragment per page (source of truth)
+  media-manifest.tsv   <export-relative-path>\t<target-filename>
   redirects.txt        generated .htaccess redirect block, .html -> clean slug
 ```
 
 ### `seed.sh` behavior
 
-- Bash, uses `wp` (WP-CLI). Fails fast (`set -euo pipefail`).
+- Bash, uses `wp` (WP-CLI). `set -euo pipefail`.
 - Config vars at top: admin user login, site URL, theme slug.
-- Activates the `insectarium-legacy` theme (`wp theme activate`).
-- Sets permalink structure to `/%postname%/` and flushes rewrites.
-- For each page: resolve by slug (`wp post list --post_type=page
-  --name=<slug>`). If found, `wp post update`; else `wp post create`. Always
-  `--post_status=publish`, `--post_author=<admin id>`, `--post_type=page`,
-  `--post_content` from the matching `pages/<slug>.html`.
-- Content-blocked pages (`home`, `hourslocation`, `public-events`): the
-  script checks for the presence of the content file and skips the page with a
-  loud warning if it is missing or still contains the `BLOCKED:` sentinel.
-  These files are absent until the owner supplies content, so a normal run
-  before go-live prints three warnings — expected.
-- Care Sheets children created after the parent, with `--post_parent=<id>`.
-- Home: create/update the page holding old homepage content, then
-  `wp option update show_on_front page` + `page_on_front` to that page's ID so
-  `front-page.php` + the static front page both resolve.
-- Media: for each row in `media-manifest.tsv`, `wp media import <url or local
-  path> --porcelain`; the script tolerates missing sources (warn, continue)
-  so it runs before assets are available.
-- Calls `menu.sh`.
-- Prints a summary table: page | slug | action taken | post ID | status.
-
-### `menu.sh` behavior
-
-- `wp menu create "Primary"` if absent (idempotent check first).
-- `wp menu item add-post` for real-page items, `wp menu item add-custom` for
-  `#` group headers, capturing returned IDs to set `--parent-id` for nesting.
-- Rebuild strategy for idempotency: delete existing items on the Primary menu
-  and re-add from scratch each run (simplest correct approach; menu is small).
-- `wp menu location assign Primary primary`.
+- Activates the `insectarium-legacy` theme.
+- Sets permalink structure to `/%postname%/`, flushes rewrites.
+- Imports media first: for each `media-manifest.tsv` row,
+  `wp media import reference/…/<path> --porcelain`, recording old→new URL for
+  the link-rewrite step. Missing source → warn, continue.
+- For each page (driven by an ordered list in the script): resolve by slug
+  (`wp post list --post_type=page --field=ID --name=<slug>`). Found →
+  `wp post update`; absent → `wp post create`. Always
+  `--post_status=publish --post_author=<admin id> --post_type=page`,
+  `--post_content` from `pages/<slug>.html`.
+- Parents (`care-sheets`, `live-bugs`) created before their children; children
+  passed `--post_parent=<parent ID>`.
+- Home: create/update `home` page from `pages/home.html`, then
+  `wp option update show_on_front page` and `wp option update page_on_front
+  <ID>`.
+- Every page has a real content file — there are no skip/sentinel cases.
+- Writes `scripts/redirects.txt`.
+- Prints a summary table: page | slug | action | post ID | parent.
 
 ### URL compatibility
 
 - Clean slugs (`/about-us`).
-- `seed.sh` writes `scripts/redirects.txt` containing an Apache rewrite block
-  mapping every old `/<slug>.html` (and the flat Care Sheet URLs) to the new
-  clean path, 301. Site owner pastes it into DreamPress `.htaccess` above the
-  WordPress block. Not auto-applied.
+- `redirects.txt` contains an Apache 301 block mapping every old
+  `/<slug>.html` (including flat `/jumping-spiders.html`,
+  `/tarantulas.html`, `/donate1.html` → `/donate`, etc.) to the new path. Owner
+  pastes it into DreamPress `.htaccess` above `# BEGIN WordPress`. Not
+  auto-applied.
 
 ## Fixing broken things while replicating
 
-In scope (the reference/live site's existing bugs):
+In scope: dead "More Info" / "More info soon" links and placeholder text —
+remove or point at the right page; broken internal links found during
+extraction; the `donate1` duplicate; the missing Shop store link.
 
-- Dead "More Info" / "More info soon" links and placeholder text — remove, or
-  point at the correct page where obvious.
-- Broken internal links surfaced during content transcription.
-
-Out of scope: any change that alters layout, copy tone, IA, or adds content not
-on the live site. Livestock-status lists (adoptable tarantulas, demo schedule
-dates, event listings) are copied as-is from the reference with an HTML comment
-noting they are volatile and owner-owned.
+Out of scope: any change to layout, copy tone, IA, or content not on live.
+Volatile lists (adoptable tarantulas, demo schedule, event listings) are copied
+as-is with an HTML comment marking them owner-owned and time-sensitive.
 
 Every deviation from live is logged in `CHANGES.md` at repo root.
 
 ## Testing / verification
 
-No unit-test framework (theme + shell). Verification is:
-
-1. `bash -n` on `seed.sh` and `menu.sh`; `shellcheck` clean.
-2. Theme activates with no PHP notices (`wp` under `WP_DEBUG`).
-3. Local or DreamPress-staging dry run of `seed.sh`: all pages with content
-   files created, the three content-blocked pages reported as skipped
-   (pre-go-live) or created (at go-live), summary table correct, re-run
-   produces "updated" not "duplicate".
-4. Manual page-by-page check against `legacy-site-content-reference.md`: every
-   captured block present, every TODO marker where the reference notes a cutoff.
-5. Nav renders the full Version A tree; three-level Care Sheets dropdown works
-   on hover and keyboard focus.
-6. Embeds present byte-for-byte (grep the rendered HTML for the FareHarbor /
-   Google Calendar / Square strings).
-7. `redirects.txt` covers every old `.html` URL.
+1. `bash -n` + `shellcheck` clean on `seed.sh`.
+2. Theme activates with no PHP notices under `WP_DEBUG`.
+3. Dry run of `seed.sh` on a local WP or DreamPress staging: all 21 nav pages +
+   8 orphan pages created (29 total); summary table correct; re-run reports
+   "update" everywhere, no duplicates.
+4. Page-by-page visual diff against the export HTML opened in a browser —
+   header, nav dropdowns (three levels under Other ▸ Care Sheets), footer,
+   fonts, palette, colored-box callouts, tables.
+5. Embeds present byte-for-byte (grep rendered HTML for the FareHarbor item
+   IDs, `calendar.google.com/calendar/embed`, Square, `kit.com`).
+6. All `uploads/…` images resolve (no broken `src`).
+7. `redirects.txt` covers every old `.html` URL including flat care-sheet /
+   live-bug paths and `donate1`.
+8. Public Events page content matches the current live site (manual check).
 
 ## Go-live checklist
 
-Ordered, every item checked off explicitly — nothing left "sitting there to be
-remembered":
+Ordered; each item explicitly checked off:
 
-1. [ ] Home content authored in `scripts/pages/home.html` (front-page body).
-2. [ ] Hours/Location content authored in `scripts/pages/hourslocation.html`.
-3. [ ] Public Events current listings authored in
-   `scripts/pages/public-events.html` — **must be done before deploy**.
-4. [ ] Theme deployed to DreamPress (`wp-content/themes/insectarium-legacy/`).
-5. [ ] `scripts/seed.sh` run over SSH; summary table reviewed; zero skipped
-   pages (the three content-blocked warnings must be gone).
-6. [ ] `scripts/seed.sh` re-run; confirmed idempotent ("updated", no duplicates).
-7. [ ] Nav renders full Version A tree; three-level Care Sheets dropdown works
-   on hover + keyboard.
-8. [ ] Embeds verified byte-for-byte on rendered pages (FareHarbor, Google
-   Calendar, Square, KIT).
-9. [ ] **Apply `scripts/redirects.txt` to DreamPress `.htaccess`** above the
-   `# BEGIN WordPress` block; spot-check 3–4 old `/<slug>.html` URLs 301 to the
-   clean paths, including a flat Care Sheet URL.
-10. [ ] `CHANGES.md` reviewed with the owner.
-11. [ ] Media library populated (or accepted gap logged) and image `src`
-    values resolve.
+1. [ ] All `scripts/pages/*.html` fragments extracted and reviewed.
+2. [ ] Public Events fragment reconciled against the live site (listings
+   current) — **before deploy**.
+3. [ ] Owner-supplied external Shop URL wired into `pages/shop.html` (or the
+   placeholder consciously accepted).
+4. [ ] Media imported; `media-manifest.tsv` complete.
+5. [ ] Theme deployed to DreamPress
+   (`wp-content/themes/insectarium-legacy/`).
+6. [ ] `scripts/seed.sh` run over SSH; summary table reviewed; every page
+   created.
+7. [ ] `scripts/seed.sh` re-run; idempotent ("update", no duplicates).
+8. [ ] Nav renders full Version A tree; three-level Care Sheets dropdown works
+   on hover + keyboard; "Book Now" button present.
+9. [ ] Embeds verified byte-for-byte on rendered pages.
+10. [ ] **Apply `scripts/redirects.txt` to DreamPress `.htaccess`** above
+    `# BEGIN WordPress`; spot-check old `/about-us.html`, a flat
+    `/jumping-spiders.html`, `/tarantulas.html`, and `/donate1.html` all 301
+    correctly.
+11. [ ] Orphan pages (`/donate`, `/internships`, `/mma`, `/live-bugs` + 4)
+    reachable by direct URL, absent from nav.
+12. [ ] `CHANGES.md` reviewed with the owner.
 
 ## Open items owned by the site owner
 
-Blocking (go-live cannot happen without these):
+None blocking the build. Before/at deploy:
 
-- Home body content (old Weebly homepage).
-- Hours/Location full content (address, hours, directions, map).
-- Public Events current listings — before deployment.
-
-Non-blocking (build proceeds; fill in as available):
-
-- Confirm Version A nav is current (Bug Club evidence supports it).
-- Confirm whether `donate.html` / `internships.html` exist on live.
-- Supply content for the 9 placeholder pages + the partial-page cutoffs.
-- Supply screenshots or saved CSS so `site.css` can be tightened to pixel-close.
-- Supply / approve localized image + font assets.
+- Confirm Public Events listings are current vs. live (manual check at deploy).
+- Supply the external Shop store URL (else placeholder ships).
+- Confirm `donate` vs `donate1` is the canonical Donate page (implementation
+  will propose one).
 
 ## Attribution
 
