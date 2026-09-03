@@ -53,6 +53,9 @@ REDIRECT_ONLY = {
     "private-events-and-field-trips.html": "/private-events",
     "home.html": "/",
     "home1.html": "/",
+    "faq.html": "/faq-about-the-insectarium",
+    "private-eventsparties.html": "/private-events",
+    "public-events1.html": "/public-events",
 }
 
 def html_to_path(name):
