@@ -48,8 +48,8 @@ def flat_name(orig):
 
 
 ASSET_RE = re.compile(
-    r"""(?P<pre>(?:src|href|data-src)\s*=\s*["']|url\(\s*["']?)"""
-    r"""(?P<url>(?:https?://(?:www\.)?pdxinsectarium\.org/)?/?(?:uploads|files/theme/files/images)/[^"')\s]+)""",
+    r"""(?P<pre>(?:src|href|data-src)\s*=\s*["']|url\(\s*(?:["']|&quot;|&\#0?34;|&\#0?39;|&apos;)?)"""
+    r"""(?P<url>(?:https?://(?:www\.)?pdxinsectarium\.org/)?/?(?:uploads|files/theme/files/images)/[^"'()\s&]+)""",
     re.I,
 )
 
