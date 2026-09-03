@@ -68,3 +68,13 @@ function il_document_title( $parts ) {
 }
 add_filter( 'document_title_parts', 'il_document_title' );
 add_filter( 'document_title_separator', function () { return '-'; } );
+
+// All site content is Pages, so make the front-end search query them
+// (WordPress core searches only the `post` type by default). Keeps the
+// footer search box functional, matching the live Weebly site's search.
+function il_search_pages( $query ) {
+	if ( ! is_admin() && $query->is_main_query() && $query->is_search() ) {
+		$query->set( 'post_type', 'page' );
+	}
+}
+add_action( 'pre_get_posts', 'il_search_pages' );
