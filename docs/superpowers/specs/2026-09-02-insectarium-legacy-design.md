@@ -2,7 +2,9 @@
 
 Date: 2026-09-02
 Repo: `insectarium-legacy`
-Status: approved design, pending implementation plan
+Status: approved design. Implementation plan is **held** until the site owner
+supplies real content for the three content-blocked pages (Home, Hours/Location,
+Public Events — see Page Inventory).
 
 ## Purpose
 
@@ -46,38 +48,55 @@ Consequences that shape this spec:
   ships a faithful **approximation** of the standard Weebly theme layout, to be
   refined from screenshots later. Only `assets/css/site.css` and the media
   library are affected by this; everything else is final.
-- ~10–12 pages have no usable content yet and ship as visible
+- Three pages (Home, Hours/Location, Public Events) are **content-blocked**:
+  shipping them as placeholders would be a functional regression from the live
+  site, so implementation of these specific pages is held until the owner
+  supplies real content. See "Content-blocked pages" below.
+- 9 pages (+2 conditional) have no usable content yet and ship as visible
   "content coming soon" placeholders (see Page Inventory).
 
 ## Content / page inventory
 
 Slugs are the old path minus `.html`.
 
-### Real content available now (11)
+### Content-blocked pages — implementation held (3)
+
+These pages are part of the live site's core function. A "content coming soon"
+placeholder here is a regression, not a replica, so their `pages/<slug>.html`
+content files are **not authored and the seed script does not create/update
+them** until the owner supplies real content. The rest of the build (theme,
+seed script, nav, other pages) proceeds without them; go-live is blocked until
+all three are filled in.
+
+| Page | Slug | Blocked on |
+|---|---|---|
+| Home | `/` (front-page) | Real old-Weebly homepage body (layout + copy). Must include the accessibility-survey callout. `front-page.php` template is still built now; only the front-page *content* is held. |
+| Hours/Location | `hourslocation` | Real address, hours, directions/transit/parking, map embed. |
+| Public Events | `public-events` | Current event listings (individual cards, FareHarbor links). Hard requirement: supplied **before deployment**, no exceptions — this is where ticket-purchase traffic routes. Policy text + "Free Library Events" example already captured. |
+
+### Real content available now (9)
 
 | Page | Slug | Source status | Notes |
 |---|---|---|---|
-| Home | `/` (front-page) | partial | Old Weebly homepage layout, not the `insectarium-web` version. Must include the accessibility-survey callout. Body largely TODO. |
 | About Us | `about-us` | full | Intro, history, residents table, Contact block, team bios (Red Armstrong bio cut off — TODO marker), press-mentions link list. |
 | FAQ about the insectarium | `faq-about-the-insectarium` | partial | Hours/prices, masks, wheelchair access (cut off), handling fees (cut off). TODO markers inline. |
 | FAQ about bugs | `faq-about-bugs` | partial | Oregon spiders Q&A, mantis-egg-case Q&A (cut off). More Q&A exists — TODO marker. |
 | Calendar | `calendar` | full | Intro, cancellation policy, demonstration-schedule intro + full static demo list (legacy text version, deliberately kept), Google Calendar iframe embed, two images (`calendar-41_orig.png`, `calendar-42_orig.png`). |
 | Admission | `admission` | full | Address, booking guidance, cancellation policy, two pricing tables (online / walk-in), notes, FareHarbor embed. |
 | Memberships | `memberships` | partial | Purchase mechanics + price range only. Tier/benefit text is TODO. |
-| Public Events | `public-events` | partial | "READ BEFORE PURCHASING" policy text, "Free Library Events" example. Current event listings are TODO (time-sensitive — owner to supply near build time). |
 | Shop | `shop` | partial | Description of what's sold (digital downloads, donation product via Square, FareHarbor gift cards). Actual store markup TODO. |
 | Services | `services` | full | Insect Pinning, Pet Bug Sitting, Tarantula Adoption Program (+ current adoptable list, flagged volatile), Tarantula Donation info. |
 | Bug Club | `bug-club` | mostly full | Volunteer-law explanation, perks list (tail cut off), participation requirement (cut off). TODO markers. |
 
-### Placeholder pages, awaiting content (10, +2 conditional)
+### Placeholder pages, awaiting content (9, +2 conditional)
 
 Created as **published** pages with a visible "Content coming soon" line and an
 HTML comment listing what the reference file says the page needs. Keeps nav
 links from 404ing.
 
-`hourslocation`, `summer-camp`, `private-events` (menu label "Events at the
-Insectarium"), `off-site-events`, `photo-shoots`, `community`, `care-sheets`
-(parent), `jumping-spiders`, `ghost-mantis`, `isopods`.
+`summer-camp`, `private-events` (menu label "Events at the Insectarium"),
+`off-site-events`, `photo-shoots`, `community`, `care-sheets` (parent),
+`jumping-spiders`, `ghost-mantis`, `isopods`.
 
 Conditional, pending owner confirmation they exist on live: `donate`,
 `internships`. If created, they are published but **excluded from the nav menu**
@@ -209,6 +228,11 @@ scripts/
   --name=<slug>`). If found, `wp post update`; else `wp post create`. Always
   `--post_status=publish`, `--post_author=<admin id>`, `--post_type=page`,
   `--post_content` from the matching `pages/<slug>.html`.
+- Content-blocked pages (`home`, `hourslocation`, `public-events`): the
+  script checks for the presence of the content file and skips the page with a
+  loud warning if it is missing or still contains the `BLOCKED:` sentinel.
+  These files are absent until the owner supplies content, so a normal run
+  before go-live prints three warnings — expected.
 - Care Sheets children created after the parent, with `--post_parent=<id>`.
 - Home: create/update the page holding old homepage content, then
   `wp option update show_on_front page` + `page_on_front` to that page's ID so
@@ -257,8 +281,10 @@ No unit-test framework (theme + shell). Verification is:
 
 1. `bash -n` on `seed.sh` and `menu.sh`; `shellcheck` clean.
 2. Theme activates with no PHP notices (`wp` under `WP_DEBUG`).
-3. Local or DreamPress-staging dry run of `seed.sh`: all pages created, summary
-   table correct, re-run produces "updated" not "duplicate".
+3. Local or DreamPress-staging dry run of `seed.sh`: all pages with content
+   files created, the three content-blocked pages reported as skipped
+   (pre-go-live) or created (at go-live), summary table correct, re-run
+   produces "updated" not "duplicate".
 4. Manual page-by-page check against `legacy-site-content-reference.md`: every
    captured block present, every TODO marker where the reference notes a cutoff.
 5. Nav renders the full Version A tree; three-level Care Sheets dropdown works
@@ -267,12 +293,43 @@ No unit-test framework (theme + shell). Verification is:
    Google Calendar / Square strings).
 7. `redirects.txt` covers every old `.html` URL.
 
+## Go-live checklist
+
+Ordered, every item checked off explicitly — nothing left "sitting there to be
+remembered":
+
+1. [ ] Home content authored in `scripts/pages/home.html` (front-page body).
+2. [ ] Hours/Location content authored in `scripts/pages/hourslocation.html`.
+3. [ ] Public Events current listings authored in
+   `scripts/pages/public-events.html` — **must be done before deploy**.
+4. [ ] Theme deployed to DreamPress (`wp-content/themes/insectarium-legacy/`).
+5. [ ] `scripts/seed.sh` run over SSH; summary table reviewed; zero skipped
+   pages (the three content-blocked warnings must be gone).
+6. [ ] `scripts/seed.sh` re-run; confirmed idempotent ("updated", no duplicates).
+7. [ ] Nav renders full Version A tree; three-level Care Sheets dropdown works
+   on hover + keyboard.
+8. [ ] Embeds verified byte-for-byte on rendered pages (FareHarbor, Google
+   Calendar, Square, KIT).
+9. [ ] **Apply `scripts/redirects.txt` to DreamPress `.htaccess`** above the
+   `# BEGIN WordPress` block; spot-check 3–4 old `/<slug>.html` URLs 301 to the
+   clean paths, including a flat Care Sheet URL.
+10. [ ] `CHANGES.md` reviewed with the owner.
+11. [ ] Media library populated (or accepted gap logged) and image `src`
+    values resolve.
+
 ## Open items owned by the site owner
+
+Blocking (go-live cannot happen without these):
+
+- Home body content (old Weebly homepage).
+- Hours/Location full content (address, hours, directions, map).
+- Public Events current listings — before deployment.
+
+Non-blocking (build proceeds; fill in as available):
 
 - Confirm Version A nav is current (Bug Club evidence supports it).
 - Confirm whether `donate.html` / `internships.html` exist on live.
-- Supply content for the 10 placeholder pages + the partial-page cutoffs.
-- Supply current Public Events listings near build time.
+- Supply content for the 9 placeholder pages + the partial-page cutoffs.
 - Supply screenshots or saved CSS so `site.css` can be tightened to pixel-close.
 - Supply / approve localized image + font assets.
 
