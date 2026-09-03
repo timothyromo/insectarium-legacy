@@ -137,6 +137,9 @@ ADMIN_USER=<your-admin-login> bash scripts/seed.sh
 - Every one of the 29 rows must now say `update` (not `create`).
 - `wp post list --post_type=page --format=count` must stay **29** — no
   duplicates.
+- `wp post list --post_type=attachment --format=count` must stay **53** — the
+  media loop reuses prior imports (keyed on `_il_media_key` post-meta), so the
+  re-run must not re-import a single file.
 
 ### D2. Embeds survived KSES
 
@@ -148,7 +151,7 @@ third-party markup is actually present:
 curl -s https://www.pdxinsectarium.org/admission/       | grep -c fareharbor    # FareHarbor booking embed / script
 curl -s https://www.pdxinsectarium.org/public-events/   | grep -c fareharbor    # FareHarbor booking links
 curl -s https://www.pdxinsectarium.org/calendar/        | grep -c 'calendar.google.com'   # Google Calendar <iframe>
-curl -s https://www.pdxinsectarium.org/private-events/  | grep -ci square       # Square embed (Events at the Insectarium)
+curl -s https://www.pdxinsectarium.org/private-events/  | grep -c 'squareup.com/appointments'   # Square Appointments booking widget (Events at the Insectarium)
 ```
 
 Each count must be non-zero. Also confirm the floating FareHarbor "Book Now" tab
@@ -244,7 +247,7 @@ Expect `301` plus the clean target for each, e.g.
 
 ## F. Post-deploy handover
 
-- Walk `CHANGES.md` with the owner (9 rows) so they know every intentional
+- Walk `CHANGES.md` with the owner (10 rows) so they know every intentional
   deviation from the Weebly original.
 - Hand over the **orphan-URL list**: `/donate`, `/internships`, `/mma`,
   `/live-bugs` and its 4 children (`/live-bugs/tarantulas`,

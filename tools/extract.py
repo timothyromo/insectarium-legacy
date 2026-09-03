@@ -88,8 +88,15 @@ def rewrite_links(text):
     return LINK_RE.sub(repl, text)
 
 
+_KEEP_SCRIPT_RE = re.compile(r"squareup\.com/appointments|fareharbor\.com/embeds", re.I)
+
+
 def strip_cruft(text):
-    text = re.sub(r"<script\b[^>]*>.*?</script>", "", text, flags=re.S | re.I)
+    text = re.sub(
+        r"<script\b[^>]*>.*?</script>",
+        lambda m: m.group(0) if _KEEP_SCRIPT_RE.search(m.group(0)) else "",
+        text, flags=re.S | re.I,
+    )
     text = re.sub(r"<noscript\b[^>]*>.*?</noscript>", "", text, flags=re.S | re.I)
     # Weebly editor bookkeeping attributes (safe to drop; never on embeds)
     text = re.sub(r'\s+data-(?:element-type|node-type|editor[\w-]*|rte[\w-]*|widget[\w-]*)="[^"]*"', "", text, flags=re.I)
@@ -106,7 +113,7 @@ def flag_placeholders(slug, text):
         report_lines.append(f"DEAD 'More Info' LINK [{slug}]: {re.sub(chr(10),' ',m.group(0))[:120]}")
 
 
-CONTENT_RE = re.compile(r'<div id="wsite-content"[^>]*>(?P<body>.*?)\s*</div>\s*(?:<!--[^>]*-->\s*)?<div class="footer-wrap">', re.S)
+CONTENT_RE = re.compile(r'<div id="wsite-content"[^>]*>(?P<body>.*?)\s*</div>\s*</div>\s*(?:<!--[^>]*-->\s*)?<div class="footer-wrap">', re.S)
 BANNER_RE = re.compile(r'<div class="banner-wrap[^"]*">(?P<inner>.*?)</div>\s*<div class="main-wrap">', re.S)
 # page-specific inline styles: every <style>...</style> in <head> keyed on the
 # per-element UUID selector #element- (skip the Weebly framework typography block).
