@@ -56,9 +56,13 @@ real build timestamps on export, so the exact date can't be pinned. Time-
 sensitive content — Public Events listings above all — must be eyeballed
 against the live site before deploy (see Go-live checklist).
 
-The live site and Weebly CDN are behind a Cloudflare bot challenge, so no
-direct re-fetch or automated live diff is possible; the export is the single
-source and the pre-deploy check is manual.
+Only the `pdxinsectarium.org` domain is behind the Cloudflare challenge. The
+Weebly asset CDNs (`cdn11.editmysite.com`, `cdn2.editmysite.com`) and
+`fh-kit.com` are **fully reachable** — verified 200 OK for `sites.css` (210 KB
+Weebly base framework), `main.js`, the font CSS/files, and the FareHarbor
+button CSS. These are vendored into the theme (see Theme design). No automated
+diff against the live *page* is possible; the export is the single content
+source and the Public Events pre-deploy check is manual.
 
 ## Content / page inventory
 
@@ -174,40 +178,71 @@ FareHarbor "Book Now" button in the header is copied verbatim.
 
 ## Theme design
 
-### Approach — port, don't re-approximate
+### Approach — port with the real Weebly runtime, vendored
 
-Because the export gives us the real CSS and markup, the theme **ports** the
-Weebly presentation rather than approximating it:
+The export gives us the real markup and the theme customization CSS
+(`main_style.css`); the Weebly **base** framework (`sites.css`) and fonts are
+downloadable from the still-open CDN. The theme therefore reproduces the live
+presentation by vendoring those real assets, not by hand-reconstructing them:
 
-- `header.php` / `footer.php` reproduce the Weebly chrome (logo, hardcoded nav,
-  footer) using the export's markup and classes.
-- `page.php` outputs the page title and `the_content()` inside the same
-  wrapper structure Weebly uses (`#wsite-content`, `.wsite-section`, …) so the
-  ported CSS applies unchanged.
-- Page content stored in `scripts/pages/<slug>.html` is the extracted inner
-  content HTML for that page from the export, **including its page-specific
+- `assets/vendor/` holds copies of, fetched once during implementation and
+  committed:
+  - `sites.css` (`cdn11.editmysite.com/css/sites.css`) — Weebly base framework
+    (grid, `.wsite-section`, `.wsite-multicol`, menu, forms)
+  - `main_style.css` (from the export) — this site's theme customization layer
+  - `fh-kit.css` (`fh-kit.com/buttons/v2/?pop=ae40a5`) — FareHarbor button CSS
+  - supporting: `social-icons.css`, `fancybox.css` (from CDN) if the visual
+    diff shows they matter
+  - fonts: Amaranth, Montserrat, Gentium Basic, Open Sans — the `font.css` +
+    referenced font files from `cdn2.editmysite.com/fonts/…`, rehosted under
+    `assets/vendor/fonts/` with URLs rewritten to local paths
+- `header.php` / `footer.php` reproduce the Weebly chrome — `.wrapper >
+  .cento-header` (logo + hardcoded Version A nav), `.footer-wrap > .footer`
+  (search form rewired to WordPress search), `#navMobile` — verbatim from the
+  export with `href`s and asset URLs rewritten.
+- `page.php` / `front-page.php` output `the_content()` inside the exact wrapper
+  chain Weebly uses: `.main-wrap > #wsite-content.wsite-elements.wsite-not-footer
+  > .wsite-section-wrap > .wsite-section > .wsite-section-content > .container >
+  .wsite-section-elements`, so the vendored CSS applies unchanged.
+- Page content in `scripts/pages/<slug>.html` is the extracted inner HTML of
+  `.wsite-section-elements` for that page, **including its page-specific
   `<style>` block**, lightly cleaned (see "Content extraction").
-- `assets/css/site.css` = Weebly base rules + a cleaned `main_style.css` + the
-  header/nav/footer rules + `@font-face`/font stacks. Loaded on every page.
+- JavaScript: Weebly's `main.js` is **not** loaded (it needs Weebly's full
+  bootstrap and would throw). The theme ships a small `assets/js/nav.js`
+  (~40 lines) for the dropdown hover/focus behavior and the mobile hamburger
+  toggle. The FareHarbor `embeds/api/v1/?autolightframe=yes` script **is**
+  loaded verbatim site-wide — it renders the floating "Book Now" tab (there is
+  no "Book Now" button in the header markup; FareHarbor injects it).
+  If the visual diff reveals behavior that genuinely needs `main.js` (fancybox
+  image lightbox, multicol height equalization), vendor `main.js` as a
+  fallback and revisit — noted as a known risk, not the default.
+- `style.css` is the WordPress theme header plus `@import`s / enqueues of the
+  vendored sheets in load order: `sites.css` → fonts → `main_style.css` →
+  `fh-kit.css` → `theme.css` (our small header/nav/footer/mobile rules).
 
 ### File layout
 
 ```
 wp-content/themes/insectarium-legacy/
-  style.css                WP theme header + import of assets/css/site.css
-  functions.php            enqueue site.css + fonts; allow unfiltered_html for
-                           administrators; set content width; no menus, no
-                           widgets, no comments
-  header.php               <head>, wp_head(), site header, hardcoded Version A nav,
-                           verbatim FareHarbor "Book Now" button
-  footer.php               site footer, wp_footer()
-  front-page.php           Home (renders the front page's content)
-  page.php                 all other pages
-  index.php                fallback (required by WP)
-  404.php                  simple 404
-  assets/css/site.css      ported Weebly stylesheet
-  assets/fonts/            self-hosted webfonts
-  assets/img/              logo + any chrome images from the export
+  style.css                WP theme header (metadata only)
+  functions.php            enqueue vendored CSS/JS in order; allow unfiltered_html
+                           for administrators; set $content_width; no register_nav_menus,
+                           no widgets, no comments
+  header.php               <!doctype>, <head>, wp_head(), .wrapper open,
+                           .cento-header (logo + hardcoded Version A nav)
+  footer.php               .footer-wrap (search rewired to WP), #navMobile,
+                           FareHarbor autolightframe script, wp_footer()
+  front-page.php           Home — wrapper chain + the_content()
+  page.php                 all other pages — same wrapper chain + the_content()
+  index.php                fallback (required by WP) — delegates to page.php layout
+  404.php                  minimal 404 in the same chrome
+  theme.css                our header/nav/footer/mobile-nav rules only
+  assets/js/nav.js         dropdown + hamburger behavior (~40 lines)
+  assets/vendor/sites.css          Weebly base framework (from CDN)
+  assets/vendor/main_style.css     this site's theme layer (from export)
+  assets/vendor/fh-kit.css         FareHarbor button CSS (from CDN)
+  assets/vendor/fonts/             Amaranth / Montserrat / Gentium Basic / Open Sans
+  assets/img/                      logo + any chrome images from the export
 ```
 
 ### Fonts
@@ -218,9 +253,11 @@ Effective fonts on live (from inline CSS, which overrides `main_style.css`):
 - **Georgia** — headlines (`.wsite-headline`, content titles); websafe, no file
 - **Gentium Basic**, **Montserrat**, **Open Sans** — used in spots
 
-Amaranth, Gentium Basic, Montserrat, Open Sans are all on Google Fonts;
-self-host the needed weights under `assets/fonts/` with `@font-face` (no
-runtime dependency on Google or Weebly CDNs). Georgia stays a system stack.
+Amaranth, Montserrat, Gentium Basic, Open Sans each have a `font.css` at
+`cdn2.editmysite.com/fonts/<Name>/font.css` plus their font files on the same
+open CDN. Vendor those verbatim into `assets/vendor/fonts/<name>/`, rewriting
+the relative `url(./…)` references to local paths. Georgia stays a system
+stack. No runtime dependency on any CDN.
 
 ### Palette (from the export CSS)
 
@@ -253,12 +290,18 @@ Output is a clean HTML fragment per page in `scripts/pages/<slug>.html`.
 
 ### Embeds — kept byte-for-byte
 
-- FareHarbor booking embeds — the exact URL/params from each page's export
-  (Admission, Home gift item `items/564068`, Shop item `items/690480`, etc.)
-- FareHarbor site-wide "Book Now" button — in `header.php` verbatim
-- Google Calendar iframe (Calendar)
+- FareHarbor inline booking embeds — the exact anchor/URL/params from each
+  page's export (Admission, Home gift item `items/564068`, Shop item
+  `items/690480`, plus per-event item IDs on Public Events: `564169`, `564377`,
+  `564471`, `566067`, `582363`, `621549`, …)
+- FareHarbor `embeds/api/v1/?autolightframe=yes` script — loaded once site-wide
+  in `footer.php`; renders the floating "Book Now" tab
+- `fh-kit.com/buttons/v2/?pop=ae40a5` — vendored as `fh-kit.css`
+- Google Calendar iframe (Calendar):
+  `calendar.google.com/calendar/embed?src=info%40pdxinsectarium.org&ctz=America%2FLos_Angeles`
 - Square Appointments embed (Events at the Insectarium)
-- KIT mailing-list links/buttons (`kit.com/74fb3ad6f8`, `kit.com/buttons/...`)
+- KIT mailing-list links/buttons (`kit.com/74fb3ad6f8`, `fh-kit.com/…`,
+  `kit.com/buttons/v2/?pop=ae40a5`)
 
 `unfiltered_html` for admins + creating posts as an admin user via WP-CLI keeps
 this markup intact.
