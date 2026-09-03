@@ -187,7 +187,9 @@ This is the real fidelity check. Open the Weebly export locally and walk **all
 `reference/13100960266a98c399e06d8/<file>.html`. For each page check:
 
 - header logo and nav position
-- the three-level `Other ▸ Care Sheets` hover dropdown
+- the three-level `Other ▸ Care Sheets` dropdown — opens on mouse hover **and**
+  on keyboard focus (tab to `Other`, then into `Care Sheets`); `Care Sheets`
+  itself is the one clickable parent
 - footer
 - Amaranth / Georgia fonts
 - gold / green palette
@@ -196,6 +198,22 @@ This is the real fidelity check. Open the Weebly export locally and walk **all
 - pricing / resident tables
 
 Note any drift; small cosmetic differences are expected, structural ones are not.
+
+### D6. Orphan pages reachable by direct URL, absent from the nav
+
+The 8 orphan pages are seeded as **published** but are intentionally kept out of
+the hardcoded Version A nav. Confirm each resolves by direct URL:
+
+```bash
+for u in donate internships mma live-bugs live-bugs/tarantulas \
+         live-bugs/scorpions live-bugs/true-spiders live-bugs/other-arachnids; do
+  curl -s -o /dev/null -w "%{http_code}  /$u\n" "https://www.pdxinsectarium.org/$u/"
+done
+```
+
+Every line must be `200`. Then confirm none of these 8 appear anywhere in the
+rendered site menu — they are absent from `header.php`'s hardcoded tree, and the
+nav scan in D5 covers this.
 
 ---
 

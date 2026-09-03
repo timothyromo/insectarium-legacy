@@ -7,3 +7,4 @@ Thumbs.db
 /scripts/.pages-resolved/
 /scripts/.media-map.sed
 node_modules/
+__pycache__/
