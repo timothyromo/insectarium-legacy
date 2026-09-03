@@ -91,6 +91,17 @@ cd ~/pdxinsectarium.org
 ADMIN_USER=<your-admin-login> bash scripts/seed.sh
 ```
 
+`seed.sh` finds its own data via `$REPO_ROOT` and calls `wp` in the current
+directory, so run it from the WordPress root. To point it at a WordPress root
+elsewhere — e.g. testing against a local "Local"/LocalWP site whose path
+contains a space — set `WP_PATH` (do **not** put `--path` inside `WP=`, which
+word-splits):
+
+```bash
+WP_PATH='/c/Users/you/Local Sites/insectarium-legacy-test/app/public' \
+ADMIN_USER=<your-admin-login> bash /path/to/repo/scripts/seed.sh
+```
+
 `seed.sh` is idempotent. It activates the `insectarium-legacy` theme, sets
 permalinks to `/%postname%/`, imports the 53 media files, resolves `@@MEDIA:`
 tokens, creates/updates the 29 pages, wires the front page, and regenerates

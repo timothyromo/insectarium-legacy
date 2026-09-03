@@ -4,7 +4,11 @@
 set -euo pipefail
 
 # ---- config -----------------------------------------------------------------
-read -r -a WP_CMD <<< "${WP:-wp}"    # override to e.g. WP='wp --path=/srv/wp'
+read -r -a WP_CMD <<< "${WP:-wp}"    # override the wp binary, e.g. WP='php /path/to/wp-cli.phar'
+# Point at a WordPress root that isn't the current directory. Use this (not a
+# --path inside WP=...) when the path contains spaces, e.g. a "Local" site:
+#   WP_PATH='/c/Users/you/Local Sites/mysite/app/public'
+[[ -n "${WP_PATH:-}" ]] && WP_CMD+=(--path="$WP_PATH")
 ADMIN_USER="${ADMIN_USER:-admin}"    # an administrator login (for unfiltered_html)
 THEME_SLUG="insectarium-legacy"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
