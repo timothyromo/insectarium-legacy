@@ -81,10 +81,20 @@ wpq() { "${WP_CMD[@]}" --user="$ADMIN_USER" "$@"; }
 command -v "${WP_CMD[0]}" >/dev/null || { log "wp-cli not found: ${WP_CMD[0]}"; exit 1; }
 if ! wpq core is-installed; then
   log "WP-CLI could not reach a WordPress install."
-  log "  command: ${WP_CMD[*]} --user=$ADMIN_USER core is-installed"
-  log "  - run 'wp core is-installed' alone in this shell to see the raw error"
+  log "  Whatever wp-cli printed above this line (if anything) is the real error —"
+  log "  read that first."
+  log "  Exact argv passed to exec (one element per line, so quoting is unambiguous;"
+  log "  this is NOT a space-joined re-quoted string):"
+  i=0
+  for arg in "${WP_CMD[@]}" "--user=$ADMIN_USER" core is-installed; do
+    log "    argv[$i] = <$arg>"
+    i=$((i + 1))
+  done
+  log "  - re-run that argv by hand, one arg per line above, to see the raw error"
   log "  - on Windows/Local, if you see \"'D:\\Program' is not recognized\", the"
   log "    bundled wp shim is broken: set WP_BIN=<php.exe> WP_PHAR=<wp-cli.phar> (see header)"
+  log "  - if wp-cli's own error mentions the database, WP_PATH is fine and this is"
+  log "    a DB-connection problem (Local's MySQL often uses a nonstandard socket/port)"
   log "  - otherwise check WP_PATH points at the WordPress root"
   exit 1
 fi
