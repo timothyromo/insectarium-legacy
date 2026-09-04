@@ -1,0 +1,6 @@
+scripts/pages/*.html text eol=lf
+scripts/media-manifest.tsv text eol=lf
+tools/*.sh text eol=lf
+tools/*.php text eol=lf
+scripts/*.sh text eol=lf
+scripts/redirects.sample.txt text eol=lf

@@ -1,0 +1,41 @@
+/* ---- Header ---- */
+.cento-header { background: #fff; }
+.cento-header .nav-wrap > .container { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.cento-header .logo img { display: block; max-height: 90px; width: auto; }
+.cento-header .hamburger { display: none; }
+
+/* ---- Desktop nav ---- */
+.desktop-nav .wsite-menu-default { display: flex; list-style: none; margin: 0; padding: 0; flex-wrap: wrap; }
+.desktop-nav .wsite-menu-default > li { position: relative; }
+.desktop-nav .wsite-menu-item,
+.desktop-nav .wsite-menu-subitem { display: block; padding: 10px 14px; text-decoration: none; white-space: nowrap; }
+.desktop-nav .wsite-menu-item-wrap > a:not([href]) { cursor: default; }
+
+.desktop-nav .wsite-menu-wrap { position: absolute; left: 0; top: 100%; min-width: 220px; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.15); display: none; z-index: 100; }
+.desktop-nav li:hover > .wsite-menu-wrap,
+.desktop-nav li:focus-within > .wsite-menu-wrap { display: block; }
+.desktop-nav .wsite-menu { list-style: none; margin: 0; padding: 0; }
+.desktop-nav .wsite-menu .wsite-menu-wrap { left: 100%; top: 0; }  /* third level: Care Sheets */
+.desktop-nav .wsite-menu-arrow { margin-left: 6px; }
+
+/* ---- Mobile nav ---- */
+.mobile-nav { display: none; }
+@media (max-width: 767px) {
+	.desktop-nav { display: none; }
+	.cento-header .hamburger { display: inline-block; }
+	.mobile-nav { display: block; position: fixed; top: 0; right: 0; bottom: 0; width: 80%; max-width: 320px;
+		background: #fff; transform: translateX(100%); transition: transform .2s ease; overflow-y: auto; z-index: 999; }
+	body.mobile-nav-open .mobile-nav { transform: translateX(0); }
+	.mobile-nav .wsite-menu-default,
+	.mobile-nav .wsite-menu { list-style: none; margin: 0; padding: 0; }
+	.mobile-nav .wsite-menu-item,
+	.mobile-nav .wsite-menu-subitem { display: block; padding: 12px 16px; text-decoration: none; border-bottom: 1px solid #eee; }
+	.mobile-nav .wsite-menu-wrap { display: none; padding-left: 12px; }
+	.mobile-nav .wsite-menu-item-wrap.open > .wsite-menu-wrap,
+	.mobile-nav .wsite-menu-subitem-wrap.open > .wsite-menu-wrap { display: block; }
+}
+
+/* ---- Footer ---- */
+.footer-wrap { margin-top: 40px; }
+.footer .wsite-search-element-form { text-align: center; }
+.footer .wsite-search-element-input { padding: 6px 10px; }
