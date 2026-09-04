@@ -112,17 +112,50 @@ wpq rewrite flush --hard
 log "== media =="
 : > "$REPO_ROOT/scripts/.media-map.sed"
 if [[ -f "$MANIFEST" ]]; then
+  n=0
+  total="$(grep -c '' "$MANIFEST")"
   while IFS=$'\t' read -r relfile token; do
     [[ -z "${relfile:-}" ]] && continue
+    n=$((n + 1))
     src="$REPO_ROOT/scripts/$relfile"
+    log "  [$n/$total] $relfile"
     if [[ ! -f "$src" ]]; then log "  WARN missing $relfile"; continue; fi
+
     # Reuse a prior import keyed on the manifest relative filename (idempotent re-run).
+    # Capture stdout+stderr together and check the exit code explicitly: a real
+    # wp-cli failure here (fatal error, DB hiccup, etc.) must stop the run with
+    # the exact file and the raw wp-cli output, not silently feed garbage into
+    # the post_meta/eval calls below.
     key="il-$(printf '%s' "$relfile" | tr -c 'A-Za-z0-9' '-')"
-    id="$(wpq post list --post_type=attachment --meta_key=_il_media_key --meta_value="$key" --field=ID --posts_per_page=1 2>/dev/null || true)"
+    # set +e around each capture: under set -e, `var=$(cmd)` aborts the whole
+    # script the instant `cmd` fails — before the exit-code check below ever
+    # runs. Toggle it off just for the capture so we can inspect $? ourselves.
+    set +e
+    lookup_out="$(wpq post list --post_type=attachment --meta_key=_il_media_key --meta_value="$key" --field=ID --posts_per_page=1 2>&1)"
+    lookup_rc=$?
+    set -e
+    if [[ $lookup_rc -ne 0 ]]; then
+      log "ERROR: attachment lookup failed for $relfile (exit $lookup_rc)"
+      log "$lookup_out"
+      exit 1
+    fi
+    id="$lookup_out"
+
     if [[ -z "$id" ]]; then
-      id="$(wpq media import "$src" --porcelain)"
+      set +e
+      import_out="$(wpq media import "$src" --porcelain 2>&1)"
+      import_rc=$?
+      set -e
+      if [[ $import_rc -ne 0 ]] || ! [[ "$import_out" =~ ^[0-9]+$ ]]; then
+        log "ERROR: media import failed for $relfile (exit $import_rc)"
+        log "  src: $src"
+        log "$import_out"
+        exit 1
+      fi
+      id="$import_out"
       wpq post meta update "$id" _il_media_key "$key" >/dev/null
     fi
+
     url="$(wpq eval "echo wp_get_attachment_url($id);")"
     esc_token="$(printf '%s' "$token" | sed -e 's/[\/&|]/\\&/g')"
     esc_url="$(printf '%s' "$url" | sed -e 's/[\/&|]/\\&/g')"
