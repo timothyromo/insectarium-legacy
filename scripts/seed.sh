@@ -111,6 +111,8 @@ wpq rewrite flush --hard
 # ---- 2. media import: build @@MEDIA:<path>@@ -> URL map ----------------------
 log "== media =="
 : > "$REPO_ROOT/scripts/.media-map.sed"
+IMPORT_LOG_DIR="$REPO_ROOT/scripts/.import-logs"
+rm -rf "$IMPORT_LOG_DIR"; mkdir -p "$IMPORT_LOG_DIR"
 if [[ -f "$MANIFEST" ]]; then
   n=0
   total="$(grep -c '' "$MANIFEST")"
@@ -118,38 +120,51 @@ if [[ -f "$MANIFEST" ]]; then
     [[ -z "${relfile:-}" ]] && continue
     n=$((n + 1))
     src="$REPO_ROOT/scripts/$relfile"
+    tag="$(printf '%03d' "$n")"
     log "  [$n/$total] $relfile"
     if [[ ! -f "$src" ]]; then log "  WARN missing $relfile"; continue; fi
 
     # Reuse a prior import keyed on the manifest relative filename (idempotent re-run).
-    # Capture stdout+stderr together and check the exit code explicitly: a real
-    # wp-cli failure here (fatal error, DB hiccup, etc.) must stop the run with
-    # the exact file and the raw wp-cli output, not silently feed garbage into
-    # the post_meta/eval calls below.
+    #
+    # Redirect stdout+stderr straight to a real file, not a $(...) capture: a
+    # $(...) pipe only returns once every writer has closed it, so a hard PHP
+    # crash or an orphaned helper process (ImageMagick/GD) holding the pipe
+    # open can hang forever with nothing visible; a plain file has no such
+    # wait, whatever got written survives even if the process dies mid-write,
+    # and it can be `tail -f`'d from another shell while this one is stuck.
+    # `if cmd > file; then ... else ...; fi` is also exempt from `set -e` by
+    # bash's own rules — no toggling needed.
     key="il-$(printf '%s' "$relfile" | tr -c 'A-Za-z0-9' '-')"
-    # set +e around each capture: under set -e, `var=$(cmd)` aborts the whole
-    # script the instant `cmd` fails — before the exit-code check below ever
-    # runs. Toggle it off just for the capture so we can inspect $? ourselves.
-    set +e
-    lookup_out="$(wpq post list --post_type=attachment --meta_key=_il_media_key --meta_value="$key" --field=ID --posts_per_page=1 2>&1)"
-    lookup_rc=$?
-    set -e
+    lookup_log="$IMPORT_LOG_DIR/$tag-lookup.log"
+    if wpq post list --post_type=attachment --meta_key=_il_media_key --meta_value="$key" --field=ID --posts_per_page=1 > "$lookup_log" 2>&1; then
+      lookup_rc=0
+    else
+      lookup_rc=$?
+    fi
     if [[ $lookup_rc -ne 0 ]]; then
       log "ERROR: attachment lookup failed for $relfile (exit $lookup_rc)"
-      log "$lookup_out"
+      log "  full output: $lookup_log"
+      cat "$lookup_log" >&2
       exit 1
     fi
-    id="$lookup_out"
+    id="$(cat "$lookup_log")"
 
     if [[ -z "$id" ]]; then
-      set +e
-      import_out="$(wpq media import "$src" --porcelain 2>&1)"
-      import_rc=$?
-      set -e
+      import_log="$IMPORT_LOG_DIR/$tag-import.log"
+      log "    importing (log: $import_log)"
+      if wpq media import "$src" --porcelain > "$import_log" 2>&1; then
+        import_rc=0
+      else
+        import_rc=$?
+      fi
+      import_out="$(cat "$import_log" 2>/dev/null || true)"
       if [[ $import_rc -ne 0 ]] || ! [[ "$import_out" =~ ^[0-9]+$ ]]; then
         log "ERROR: media import failed for $relfile (exit $import_rc)"
         log "  src: $src"
-        log "$import_out"
+        log "  full output: $import_log"
+        log "----- $import_log -----"
+        cat "$import_log" >&2
+        log "----- end -----"
         exit 1
       fi
       id="$import_out"
