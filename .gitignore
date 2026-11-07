@@ -9,3 +9,8 @@ Thumbs.db
 /scripts/.import-logs/
 node_modules/
 __pycache__/
+.env*
+wp-config.php
+*.sql
+*.pem
+*.key
