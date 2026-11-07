@@ -1,2 +1,16 @@
-# Weebly export — large binary source material, kept locally as reference only
+/.superpowers/
 /reference/
+*.log
+.DS_Store
+Thumbs.db
+/scripts/redirects.txt
+/scripts/.pages-resolved/
+/scripts/.media-map.sed
+/scripts/.import-logs/
+node_modules/
+__pycache__/
+.env*
+wp-config.php
+*.sql
+*.pem
+*.key

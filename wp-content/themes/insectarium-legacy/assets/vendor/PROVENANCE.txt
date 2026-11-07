@@ -1,0 +1,52 @@
+Vendored third-party assets — provenance
+========================================
+
+Fetch date: 2026-09-02  (all files below captured on this date via
+tools/fetch-vendor.sh, except main_style.css which is copied from the
+git-ignored Weebly export under reference/).
+
+These are the real runtime assets the live Weebly site pdxinsectarium.org
+loads. The replica theme reproduces the live presentation by vendoring them
+verbatim rather than hand-reconstructing them. Only the apex domain
+pdxinsectarium.org is behind Cloudflare; the editmysite.com and fh-kit.com
+CDNs are open and were fetched directly.
+
+Files
+-----
+
+sites.css
+  What: Weebly base CSS framework (grid, .wsite-section, .wsite-multicol,
+        menu, forms). ~210 KB.
+  Source: https://cdn11.editmysite.com/css/sites.css
+  Origin: Weebly / Square, Inc. — proprietary, no redistribution grant.
+
+main_style.css
+  What: this site's Weebly theme customization layer (~37 KB) — palette,
+        typography overrides, .colored-box callouts.
+  Source: the Weebly site export, files/main_style.css
+          (reference/13100960266a98c399e06d8/files/main_style.css, git-ignored).
+  Origin: Weebly / Square, Inc. generated output — proprietary, no
+          redistribution grant.
+
+fh-kit.css
+  What: FareHarbor "Book Now" button kit CSS.
+  Source: https://fh-kit.com/buttons/v2/?pop=ae40a5
+  Origin: FareHarbor.com (Boombox Inc.) — proprietary, no redistribution grant.
+
+fonts/amaranth/       font.css + regular/italic/bold/bolditalic (eot,ttf,woff,woff2)
+fonts/montserrat/     font.css + regular/bold (eot,ttf,woff,woff2)
+fonts/open-sans/      font.css + light/regular/italic/bold/... (eot,ttf,woff,woff2)
+fonts/gentium-basic/  font.css + regular (eot,ttf)
+  What: the four webfont families the live site's inline CSS selects.
+  Source: https://cdn2.editmysite.com/fonts/<Family>/font.css and the font
+          files it references (Amaranth, Montserrat, Open_Sans, Gentium_Basic).
+          url(./x) references rewritten to local bare filenames by
+          tools/fetch-vendor.sh.
+  Origin: open-source font projects rehosted on Weebly's CDN. Upstream
+          licenses: see fonts/LICENSES.md.
+
+Handling
+--------
+
+Frozen snapshot — do not re-fetch mid-life without re-running the DEPLOY.md
+D5 visual diff. Remove when the insectarium-web rebuild replaces this site.
